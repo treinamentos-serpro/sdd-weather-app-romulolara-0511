@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getWeather, searchCities } from '../../src/services/weatherService';
+import {
+  getWeather,
+  searchCities,
+  WeatherRequestTimeoutError,
+} from '../../src/services/weatherService';
 import { forecastResponse, geocodingResponse } from '../fixtures/openMeteo';
-import { initialMockWeather as weather, mockWeather } from '../fixtures/weather';
+import { mockWeather, initialMockWeather as weather } from '../fixtures/weather';
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -9,7 +13,10 @@ beforeEach(() => {
   fetchMock.mockReset();
   vi.stubGlobal('fetch', fetchMock);
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 function respond(body: unknown) {
   fetchMock.mockResolvedValue(Response.json(body));
@@ -30,7 +37,44 @@ describe('searchCities', () => {
       language: 'pt',
       format: 'json',
     });
-    expect(options?.signal).toBe(signal);
+    expect(options?.signal).toBeInstanceOf(AbortSignal);
+    expect(options?.signal).not.toBe(signal);
+  });
+
+  it('cancela a chamada subjacente quando a consulta é invalidada', async () => {
+    const controller = new AbortController();
+    fetchMock.mockImplementationOnce(
+      (_input, options) =>
+        new Promise((_resolve, reject) => {
+          options?.signal?.addEventListener(
+            'abort',
+            () => reject(new DOMException('Cancelado', 'AbortError')),
+            { once: true },
+          );
+        }),
+    );
+    const pending = searchCities('Lisboa', controller.signal);
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(true);
+  });
+
+  it('aborta e identifica chamadas que excedem 10 segundos', async () => {
+    vi.useFakeTimers();
+    fetchMock.mockImplementationOnce(
+      (_input, options) =>
+        new Promise((_resolve, reject) => {
+          options?.signal?.addEventListener(
+            'abort',
+            () => reject(new DOMException('Cancelado', 'AbortError')),
+            { once: true },
+          );
+        }),
+    );
+    const pending = searchCities('Lisboa');
+    const outcome = expect(pending).rejects.toBeInstanceOf(WeatherRequestTimeoutError);
+    await vi.advanceTimersByTimeAsync(10_000);
+    await outcome;
   });
 
   it.each([{}, { results: [] }])('distingue resposta vazia válida: %j', async (body) => {
@@ -94,7 +138,8 @@ describe('getWeather', () => {
       forecast_days: '5',
       timezone: 'auto',
     });
-    expect(options?.signal).toBe(signal);
+    expect(options?.signal).toBeInstanceOf(AbortSignal);
+    expect(options?.signal).not.toBe(signal);
   });
 
   it('valida cinco dias locais consecutivos atravessando mês e ano, sem usar o relógio do dispositivo', async () => {

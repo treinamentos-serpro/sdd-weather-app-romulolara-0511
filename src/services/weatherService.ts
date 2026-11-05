@@ -1,5 +1,14 @@
 import type { City, WeatherData } from '../types/weather';
 
+const REQUEST_TIMEOUT_MS = 10_000;
+
+export class WeatherRequestTimeoutError extends Error {
+  constructor() {
+    super('A chamada à Open-Meteo excedeu o tempo limite.');
+    this.name = 'WeatherRequestTimeoutError';
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -31,15 +40,35 @@ function isLocalTime(value: unknown): value is string {
 }
 
 async function request(url: URL, signal?: AbortSignal): Promise<unknown> {
-  const response = await fetch(url, { signal });
-  if (!response.ok) {
-    throw new Error(`Open-Meteo: HTTP ${response.status} em ${url.pathname}.`);
+  const controller = new AbortController();
+  let timedOut = false;
+  const relayAbort = () => controller.abort(signal?.reason);
+  if (signal?.aborted) relayAbort();
+  else signal?.addEventListener('abort', relayAbort, { once: true });
+
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) {
+      throw new Error(`Open-Meteo: HTTP ${response.status} em ${url.pathname}.`);
+    }
+    const data: unknown = await response.json();
+    if (!isRecord(data) || data.error) {
+      throw new Error('Open-Meteo: resposta inválida ou erro do serviço.');
+    }
+    return data;
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    if (timedOut) throw new WeatherRequestTimeoutError();
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener('abort', relayAbort);
   }
-  const data: unknown = await response.json();
-  if (!isRecord(data) || data.error) {
-    throw new Error('Open-Meteo: resposta inválida ou erro do serviço.');
-  }
-  return data;
 }
 
 export async function searchCities(query: string, signal?: AbortSignal): Promise<City[]> {

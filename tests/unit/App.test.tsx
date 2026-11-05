@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../../src/App';
@@ -42,11 +42,13 @@ describe('Interface integrada à Open-Meteo', () => {
     expect(screen.queryByText('Nenhuma cidade encontrada')).not.toBeInTheDocument();
 
     await user.type(input, 's');
+    await waitFor(() => expect(weatherService.searchCities).toHaveBeenCalledTimes(1));
     expect(weatherService.searchCities).toHaveBeenCalledExactlyOnceWith(
       'Lis',
       expect.any(AbortSignal),
     );
     await user.type(input, 'b');
+    await waitFor(() => expect(weatherService.searchCities).toHaveBeenCalledTimes(2));
     expect(weatherService.searchCities).toHaveBeenLastCalledWith('Lisb', expect.any(AbortSignal));
     expect(weatherService.searchCities).toHaveBeenCalledTimes(2);
     await user.keyboard('{Enter}');
@@ -81,6 +83,7 @@ describe('Interface integrada à Open-Meteo', () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(screen.getByRole('searchbox'), 'Lis');
+    await waitFor(() => expect(weatherService.searchCities).toHaveBeenCalledTimes(1));
     const signal = vi.mocked(weatherService.searchCities).mock.calls[0][1];
     expect(screen.getByRole('status')).toHaveTextContent('Buscando cidades...');
     await user.type(screen.getByRole('searchbox'), '{Backspace}');
@@ -110,6 +113,10 @@ describe('Interface integrada à Open-Meteo', () => {
     expect(within(current).getByText(/horário local/)).toBeVisible();
     const forecast = screen.getByRole('region', { name: 'Previsão de 5 dias' });
     expect(within(forecast).getAllByRole('article')).toHaveLength(5);
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Previsão do tempo carregada para São Paulo.',
+    );
+    expect(screen.getByRole('main').querySelector('[aria-live]')).toBeNull();
     expect([...forecast.querySelectorAll('time')].map((time) => time.dateTime)).toEqual(
       initialMockWeather.forecast.map((day) => day.date),
     );
@@ -222,6 +229,7 @@ describe('Interface integrada à Open-Meteo', () => {
     expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
     expect(screen.queryByRole('region', { name: 'São Paulo' })).not.toBeInTheDocument();
     expect(screen.queryByRole('article')).not.toBeInTheDocument();
+    await waitFor(() => expect(weatherService.searchCities).toHaveBeenCalledTimes(2));
     await act(async () => resolveSearch([]));
 
     expect(screen.getByRole('status')).toHaveTextContent('Nenhuma cidade encontrada');

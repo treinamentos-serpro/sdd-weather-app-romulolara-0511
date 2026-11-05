@@ -13,6 +13,9 @@ describe('Componentes reutilizáveis', () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
     render(<CityResults cities={[initialMockWeather.city]} onSelect={onSelect} />);
+    expect(screen.getByRole('status')).toHaveTextContent(
+      '1 cidade encontrada. Selecione uma localização.',
+    );
     await user.click(screen.getByRole('button', { name: /São Paulo.*Brasil/ }));
     expect(onSelect).toHaveBeenCalledWith(initialMockWeather.city);
   });

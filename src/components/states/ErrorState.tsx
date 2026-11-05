@@ -11,7 +11,7 @@ export default function ErrorState({ message, onRetry }: ErrorStateProps) {
       <button
         type="button"
         onClick={onRetry}
-        className="mt-5 min-h-11 rounded-xl bg-accent-600 px-5 py-3 text-sm font-semibold transition hover:bg-accent-500"
+        className="mt-5 min-h-11 rounded-xl bg-accent-600 px-5 py-3 text-sm font-semibold transition hover:bg-accent-500 motion-reduce:transition-none"
       >
         Tentar novamente
       </button>

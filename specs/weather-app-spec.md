@@ -117,8 +117,7 @@ resultados ou falha para saber o que está acontecendo e como prosseguir.
 - Uma falha de rede ou do serviço é comunicada como falha, sem ser apresentada
   como resultado válido ou como ausência de resultados.
 - Após uma falha, existe uma ação disponível para tentar novamente a consulta.
-- O limite de tempo para classificar uma consulta como falha deve seguir a
-  decisão registrada em **Open Questions**.
+- Uma consulta expira após 10 segundos e oferece ação de nova tentativa.
 
 ## 5. Non-Functional Requirements
 
@@ -134,6 +133,13 @@ resultados ou falha para saber o que está acontecendo e como prosseguir.
 - **RNF5 — Clareza dos dados:** identificar a cidade e a unidade de temperatura
   junto às informações correspondentes.
 - **RNF6 — Idioma:** apresentar a interface em português do Brasil.
+- **RNF7 — Robustez e desempenho:** aguardar 300 ms após a última edição antes
+  de iniciar a busca automática; limitar cada chamada à API a 10 segundos e
+  comunicar expiração como falha recuperável. Uma edição ou seleção mais recente
+  invalida consultas anteriores.
+- **RNF8 — Anúncios acessíveis:** anunciar mudanças de estado sem transformar
+  todo o conteúdo meteorológico em uma região dinâmica; respeitar a preferência
+  do sistema por movimento reduzido.
 
 ## 6. Edge Cases
 
@@ -146,8 +152,7 @@ resultados ou falha para saber o que está acontecendo e como prosseguir.
 - **Falha de rede ou indisponibilidade do serviço:** comunicar a falha e
   disponibilizar nova tentativa.
 - **Consulta lenta ou timeout:** apresentar o estado de carregamento enquanto
-  aguarda; o momento de considerar a consulta expirada depende da decisão em
-  **Open Questions**.
+  aguarda e, após 10 segundos, comunicar a expiração e permitir nova tentativa.
 - **Dados meteorológicos ausentes ou incompletos:** não apresentar como
   concluídos dados que não foram recebidos; comunicar que a consulta não pôde
   ser concluída e permitir nova tentativa.
@@ -171,6 +176,8 @@ resultados ou falha para saber o que está acontecendo e como prosseguir.
 - A previsão de cinco dias corresponde a hoje e aos quatro dias seguintes.
 - Celsius é a unidade inicial, com opção para alternar para Fahrenheit.
 - A primeira versão não solicita geolocalização automaticamente.
+- Chamadas de rede expiram após 10 segundos; buscas de cidade aguardam 300 ms
+  após a última edição antes de iniciar.
 
 ## 8. Risks
 
@@ -212,8 +219,8 @@ se tornem pressupostos de implementação:
      tratados.
 6. **Qual deve ser o tamanho mínimo do texto e o intervalo de espera antes de
    iniciar ou atualizar a busca automática durante a digitação?**
-   - Impacto: afeta a frequência das consultas e quando os resultados são
-     atualizados.
+   - Decisão para produção: manter o mínimo de três caracteres e aguardar 300 ms
+     após a última edição.
 7. **A cidade e a unidade escolhidas devem ser lembradas ao retornar à
    aplicação?**
    - Impacto: determina se haverá persistência de preferências no dispositivo.
@@ -222,4 +229,5 @@ se tornem pressupostos de implementação:
    - Impacto: evita divergências entre a hora local da cidade e a hora do
      dispositivo.
 9. **Qual é o tempo máximo aceitável para uma busca antes de informar falha?**
-   - Impacto: influencia quando o estado de erro deve ser mostrado.
+   - Decisão para produção: limitar chamadas de rede a 10 segundos e oferecer
+     nova tentativa quando o limite for atingido.

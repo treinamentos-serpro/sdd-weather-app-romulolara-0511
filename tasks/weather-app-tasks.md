@@ -6,16 +6,17 @@ ordenadas por dependência e organizadas por entrega.
 
 ## Premissas para execução
 
-- O escopo funcional é o da spec; decisões ainda abertas nas questões 1–9 da spec
-  devem ser confirmadas antes de estabilizar os campos e a apresentação afetados.
+- O escopo funcional é o da spec; decisões ainda abertas devem ser confirmadas
+  antes de estabilizar os campos e a apresentação afetados. Para hardening, as
+  questões 6 e 9 foram resolvidas: debounce de 300 ms e timeout de 10 segundos.
 - A busca é automática a partir de três caracteres. Entradas menores não iniciam
   requisição nem são tratadas como busca vazia; ao encurtar o texto, resultados
-  anteriores devem ser limpos ou invalidados. O intervalo/debounce segue pendente:
-  não assumir uma duração sem decisão registrada.
+  anteriores devem ser limpos ou invalidados. A busca aguarda 300 ms após a
+  última edição.
 - Enquanto não houver decisão registrada, implementar somente a proposta mínima
   do plano: até cinco resultados de geocodificação; clima atual com temperatura
   e código; previsão diária com mínima, máxima e código; sem persistência;
-  timezone local da cidade; sem duração de timeout definida. Não transformar
+  timezone local da cidade; chamadas expiram após 10 segundos. Não transformar
   essas propostas em requisitos aprovados nem adicionar campos fora do escopo.
 - O modelo interno mantém temperaturas em Celsius. A previsão contém hoje e os
   quatro dias seguintes no timezone da localização selecionada.
@@ -232,8 +233,8 @@ ordenadas por dependência e organizadas por entrega.
     somente quando há pelo menos três caracteres.
   - Texto abaixo do limite não exibe loading nem “nenhum resultado”; os resultados
     anteriores deixam de parecer associados ao texto atual.
-  - Não se presume um intervalo de debounce; qualquer intervalo deve seguir uma
-    decisão registrada na questão 6 da spec.
+  - A busca aguarda 300 ms após a última edição, conforme a decisão registrada
+    na questão 6 da spec.
   - A busca aceita nome de cidade e renderiza opções com nome e contexto
     geográfico definido para distingui-las.
   - Selecionar uma opção encaminha o objeto dessa cidade ao hook, não apenas o
@@ -326,3 +327,27 @@ ordenadas por dependência e organizadas por entrega.
     comandos afetados são executados novamente.
   - Não são introduzidas geolocalização automática, autenticação, backend ou
     persistência fora do escopo aprovado.
+
+## Entrega 7 — Preparação para produção
+
+### T-22 — Endurecer consultas, acessibilidade e acabamento da interface
+
+- **Requisitos:** RNF1–RNF8; critérios transversais de produção.
+- **Dependências:** T-13, T-19, T-21.
+- **Arquivos prováveis:** `src/hooks/useWeather.ts`,
+  `src/services/weatherService.ts`, componentes em `src/components/`,
+  `src/App.tsx`, `index.html` e testes unitários correspondentes.
+- **Critérios de aceite:**
+  - Busca automática espera 300 ms após a última edição; entradas menores que
+    três caracteres cancelam temporizadores e requisições em andamento.
+  - Cada chamada de rede expira após 10 segundos, mostra erro compreensível e
+    permite retry; cancelamentos por consultas mais recentes não mostram erro.
+  - Respostas obsoletas nunca substituem o estado da consulta mais recente e
+    timers/requisições são limpos quando o hook desmonta.
+  - Loading e erro são anunciados semanticamente sem colocar toda a previsão em
+    uma região `aria-live`; controles permanecem operáveis por teclado e
+    animações respeitam movimento reduzido.
+  - A interface não apresenta textos de exemplo como dados reais; títulos e
+    metadados do documento descrevem o produto em português.
+  - Testes cobrem debounce, timeout, cancelamento, retry e anúncios acessíveis;
+    lint, build, testes unitários e E2E passam.

@@ -17,6 +17,10 @@ export default function CityResults({ cities, onSelect }: CityResultsProps) {
   }
   return (
     <section aria-labelledby="results-title" className="glass-panel p-5 sm:p-8">
+      <p role="status" className="sr-only">
+        {cities.length === 1 ? '1 cidade encontrada.' : `${cities.length} cidades encontradas.`}{' '}
+        Selecione uma localização.
+      </p>
       <h2 id="results-title" className="mb-4 text-lg font-semibold">
         Selecione uma cidade
       </h2>
@@ -26,7 +30,7 @@ export default function CityResults({ cities, onSelect }: CityResultsProps) {
             <button
               type="button"
               onClick={() => onSelect(city)}
-              className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/5 p-4 text-left transition hover:bg-white/10"
+              className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/5 p-4 text-left transition hover:bg-white/10 motion-reduce:transition-none"
             >
               <span className="font-semibold">{city.name}</span>{' '}
               <span className="text-sm text-slate-300">

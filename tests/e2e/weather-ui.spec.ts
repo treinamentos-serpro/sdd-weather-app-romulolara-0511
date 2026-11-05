@@ -175,7 +175,7 @@ test('mantém loading em consultas lentas e aplica a unidade escolhida antes da 
   await expect(page.getByRole('article')).toHaveCount(0);
   await (await pendingForecast).fulfill({ json: forecastResponse(initialMockWeather) });
   await expect(page.getByRole('heading', { name: 'São Paulo' })).toBeVisible();
-  await expect(page.getByRole('status')).toHaveCount(0);
+  await expect(page.getByRole('status')).toHaveText('Previsão do tempo carregada para São Paulo.');
   await expect(page.getByRole('main').getByText(/°C/)).toHaveCount(0);
   await expect(page.getByRole('main').getByText(/°F/)).toHaveCount(11);
 });

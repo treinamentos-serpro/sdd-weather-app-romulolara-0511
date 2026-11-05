@@ -2,11 +2,11 @@ import CityResults from './components/CityResults';
 import CurrentWeather from './components/CurrentWeather';
 import ForecastList from './components/ForecastList';
 import SearchBar from './components/SearchBar';
-import UnitToggle from './components/UnitToggle';
-import WeatherIcon from './components/WeatherIcon';
 import EmptyState from './components/states/EmptyState';
 import ErrorState from './components/states/ErrorState';
 import LoadingState from './components/states/LoadingState';
+import UnitToggle from './components/UnitToggle';
+import WeatherIcon from './components/WeatherIcon';
 import useWeather from './hooks/useWeather';
 
 export default function App() {
@@ -56,7 +56,10 @@ export default function App() {
               desejada.
             </p>
           </section>
-          <div aria-live="polite" aria-atomic="false" className="space-y-8">
+          <div
+            aria-busy={state.status === 'searching' || state.status === 'loading'}
+            className="space-y-8"
+          >
             {state.status === 'idle' && (
               <EmptyState
                 title="Qual cidade vamos explorar?"
@@ -73,6 +76,9 @@ export default function App() {
             {state.status === 'error' && <ErrorState message={state.message} onRetry={retry} />}
             {state.status === 'success' && (
               <>
+                <p role="status" className="sr-only">
+                  Previsão do tempo carregada para {state.data.city.name}.
+                </p>
                 <CurrentWeather data={state.data} unit={unit} />
                 <ForecastList forecast={state.data.forecast} unit={unit} />
               </>

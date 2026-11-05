@@ -13,7 +13,7 @@ export default function ForecastList({ forecast, unit }: ForecastListProps) {
         <h2 id="forecast-title" className="text-lg font-semibold">
           Previsão de 5 dias
         </h2>
-        <p className="text-xs text-slate-400">Hoje e os próximos quatro dias no exemplo</p>
+        <p className="text-xs text-slate-400">Hoje e os próximos quatro dias.</p>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
         {forecast.map((day) => (

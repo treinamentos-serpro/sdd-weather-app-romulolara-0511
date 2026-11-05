@@ -1,9 +1,9 @@
 import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import useWeather from '../../src/hooks/useWeather';
 import * as weatherService from '../../src/services/weatherService';
 import type { City, WeatherData } from '../../src/types/weather';
-import { initialMockWeather as weather, mockWeather } from '../fixtures/weather';
+import { mockWeather, initialMockWeather as weather } from '../fixtures/weather';
 
 vi.mock('../../src/services/weatherService');
 
@@ -18,10 +18,19 @@ function deferred<T>() {
 }
 
 beforeEach(() => {
+  vi.useFakeTimers();
   vi.resetAllMocks();
   vi.mocked(weatherService.searchCities).mockResolvedValue([weather.city]);
   vi.mocked(weatherService.getWeather).mockResolvedValue(weather);
 });
+
+afterEach(() => vi.useRealTimers());
+
+async function flushSearchDebounce() {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(300);
+  });
+}
 
 describe('useWeather', () => {
   it('inicia em idle e Celsius, sem consultar serviços', () => {
@@ -45,6 +54,7 @@ describe('useWeather', () => {
     expect(result.current.state).toEqual({ status: 'searching' });
     act(() => result.current.setUnit('fahrenheit'));
     expect(result.current.state.status).toBe('searching');
+    await flushSearchDebounce();
     expect(weatherService.searchCities).toHaveBeenCalledWith('São Paulo', expect.any(AbortSignal));
     await act(async () => pending.resolve(cities));
     expect(result.current.state).toEqual({ status: 'results', cities });
@@ -54,9 +64,10 @@ describe('useWeather', () => {
   it('comunica falha de busca e retry reutiliza o texto pesquisado', async () => {
     vi.mocked(weatherService.searchCities).mockRejectedValueOnce(new Error('offline'));
     const { result } = renderHook(useWeather);
-    await act(async () => {
-      await result.current.searchCities('Lisboa');
+    act(() => {
+      result.current.searchCities('Lisboa');
     });
+    await flushSearchDebounce();
     expect(result.current.state).toMatchObject({
       status: 'error',
       message: expect.stringContaining('buscar cidades'),
@@ -71,6 +82,23 @@ describe('useWeather', () => {
     expect(weatherService.searchCities).toHaveBeenLastCalledWith('Lisboa', expect.any(AbortSignal));
   });
 
+  it('comunica timeout como falha recuperável com retry', async () => {
+    const timeout = Object.assign(new Error('timeout'), {
+      name: 'WeatherRequestTimeoutError',
+    });
+    vi.mocked(weatherService.searchCities).mockRejectedValueOnce(timeout);
+    const { result } = renderHook(useWeather);
+    act(() => result.current.searchCities('Lisboa'));
+    await flushSearchDebounce();
+    expect(result.current.state).toMatchObject({
+      status: 'error',
+      message: expect.stringContaining('tempo limite'),
+    });
+    await act(async () => result.current.retry());
+    expect(result.current.state.status).toBe('results');
+    expect(weatherService.searchCities).toHaveBeenCalledTimes(2);
+  });
+
   it.each([
     'resolve',
     'reject',
@@ -81,10 +109,12 @@ describe('useWeather', () => {
     act(() => {
       void result.current.searchCities('São Paulo');
     });
+    await flushSearchDebounce();
     const signal = vi.mocked(weatherService.searchCities).mock.calls[0][1];
-    await act(async () => {
-      await result.current.searchCities('Lisboa');
+    act(() => {
+      result.current.searchCities('Lisboa');
     });
+    await flushSearchDebounce();
     expect(signal?.aborted).toBe(true);
     const latest = result.current.state;
     await act(async () => {
@@ -112,9 +142,10 @@ describe('useWeather', () => {
 
   it('busca com exatamente três caracteres consulta o serviço sem espaços nas extremidades', async () => {
     const { result } = renderHook(useWeather);
-    await act(async () => {
-      await result.current.searchCities('  São  ');
+    act(() => {
+      result.current.searchCities('  São  ');
     });
+    await flushSearchDebounce();
     expect(weatherService.searchCities).toHaveBeenCalledExactlyOnceWith(
       'São',
       expect.any(AbortSignal),
@@ -133,6 +164,7 @@ describe('useWeather', () => {
     act(() => {
       void result.current.searchCities('São Paulo');
     });
+    await flushSearchDebounce();
     const signal = vi.mocked(weatherService.searchCities).mock.calls[0][1];
     act(() => {
       result.current.searchCities(query);
@@ -147,14 +179,15 @@ describe('useWeather', () => {
   it('texto curto limpa erro e impede retry de uma busca anterior', async () => {
     vi.mocked(weatherService.searchCities).mockRejectedValueOnce(new Error('offline'));
     const { result } = renderHook(useWeather);
-    await act(async () => {
-      await result.current.searchCities('Lisboa');
+    act(() => {
+      result.current.searchCities('Lisboa');
     });
+    await flushSearchDebounce();
     expect(result.current.state.status).toBe('error');
-    await act(async () => {
-      await result.current.searchCities('Li');
-      await result.current.retry();
+    act(() => {
+      result.current.searchCities('Li');
     });
+    await act(async () => result.current.retry());
     expect(result.current.state).toEqual({ status: 'idle' });
     expect(weatherService.searchCities).toHaveBeenCalledTimes(1);
   });
@@ -234,6 +267,7 @@ describe('useWeather', () => {
     act(() => {
       void result.current.searchCities('São Paulo');
     });
+    await flushSearchDebounce();
     const searchSignal = vi.mocked(weatherService.searchCities).mock.calls[0][1];
     act(() => {
       void result.current.selectCity(weather.city);
@@ -242,23 +276,52 @@ describe('useWeather', () => {
     await act(async () => search.resolve([weather.city]));
     expect(result.current.state.status).toBe('loading');
     const forecastSignal = vi.mocked(weatherService.getWeather).mock.calls[0][1];
-    await act(async () => {
-      await result.current.searchCities('Lisboa');
+    act(() => {
+      result.current.searchCities('Lisboa');
     });
+    await flushSearchDebounce();
     expect(forecastSignal?.aborted).toBe(true);
     await act(async () => forecast.resolve(weather));
     expect(result.current.state.status).toBe('results');
   });
 
-  it.each(['search', 'forecast'] as const)('cancela %s ao desmontar', (type) => {
+  it.each(['search', 'forecast'] as const)('cancela %s ao desmontar', async (type) => {
     const { result, unmount } = renderHook(useWeather);
     act(() => {
       if (type === 'search') void result.current.searchCities('São Paulo');
       else void result.current.selectCity(weather.city);
     });
+    if (type === 'search') await flushSearchDebounce();
     const service = type === 'search' ? weatherService.searchCities : weatherService.getWeather;
     const signal = vi.mocked(service).mock.calls[0][1];
     unmount();
     expect(signal?.aborted).toBe(true);
+  });
+
+  it('espera 300 ms, reinicia o prazo em nova edição e cancela a busca pendente em seleção', async () => {
+    const { result } = renderHook(useWeather);
+    act(() => result.current.searchCities('São'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250);
+    });
+    act(() => result.current.searchCities('São Paulo'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(299);
+    });
+    expect(weatherService.searchCities).not.toHaveBeenCalled();
+    act(() => void result.current.selectCity(weather.city));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(weatherService.searchCities).not.toHaveBeenCalled();
+    expect(weatherService.getWeather).toHaveBeenCalledOnce();
+  });
+
+  it('limpa o temporizador de debounce ao desmontar antes da consulta', async () => {
+    const { result, unmount } = renderHook(useWeather);
+    act(() => result.current.searchCities('Lisboa'));
+    unmount();
+    await vi.advanceTimersByTimeAsync(300);
+    expect(weatherService.searchCities).not.toHaveBeenCalled();
   });
 });

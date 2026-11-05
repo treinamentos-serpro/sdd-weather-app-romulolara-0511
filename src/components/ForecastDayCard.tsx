@@ -18,7 +18,7 @@ export default function ForecastDayCard({ day, unit, isToday }: ForecastDayCardP
       className={`glass-panel flex h-full flex-col items-center p-5 text-center ${isToday ? 'border-accent-400/40 bg-accent-500/10' : ''}`}
     >
       <p className={`mb-2 text-xs font-medium ${isToday ? 'text-accent-400' : 'text-slate-400'}`}>
-        {isToday ? 'Hoje no exemplo' : 'Próximo dia'}
+        {isToday ? 'Hoje' : 'Previsão diária'}
       </p>
       <h3 className="text-sm font-semibold">
         <time dateTime={day.date}>{formatForecastDate(day.date)}</time>

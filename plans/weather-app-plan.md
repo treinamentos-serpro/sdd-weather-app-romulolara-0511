@@ -158,8 +158,9 @@ tarefas sem alterar esse comportamento.
    interface verifica o tamanho da entrada: com menos de três caracteres, não
    envia requisição e não apresenta isso como uma busca sem resultados. A partir
    de três caracteres, inicia a busca automaticamente, sem botão ou tecla de
-   envio (RF1, US1). O intervalo/debounce entre consultas permanece conforme a
-   decisão pendente na questão 6 da spec.
+   envio (RF1, US1). Aguarda 300 ms após a última edição antes de consultar;
+   uma edição posterior cancela o temporizador e invalida a requisição ativa
+   (RNF7).
 2. `weatherService.searchCities(query)` consulta o Geocoding e normaliza os
    resultados. A UI comunica loading enquanto aguarda; resultado vazio exibe
    mensagem de ausência; cada opção mostra cidade e contexto geográfico (RF2,
@@ -236,8 +237,8 @@ mínima; rever se as questões 1–3 aprovarem detalhes adicionais.
   resultados; limpar/invalidar resultados de consultas anteriores para que não
   pareçam corresponder ao texto atual.
 - Expor operações conceituais `searchCities(query)`, `selectCity(city)`,
-  `setUnit(unit)` e `retry()`, além do estado necessário à UI. O intervalo entre
-  chamadas automáticas ainda depende da questão 6 da spec.
+  `setUnit(unit)` e `retry()`, além do estado necessário à UI. Buscas
+  automáticas aguardam 300 ms após a última edição (RNF7).
 - Manter temperaturas em Celsius e derivar valores para exibição com funções
   puras. Conversão:
   `°F = (°C × 9 / 5) + 32`; formatar com unidade e locale `pt-BR`.
@@ -263,10 +264,13 @@ mínima; rever se as questões 1–3 aprovarem detalhes adicionais.
   semanticamente nomeados e utilizáveis por teclado (RNF2–RNF4).
 - O erro da previsão preserva a cidade selecionada e mostra ação “Tentar
   novamente”; repetir a consulta não exige uma nova busca (RF7).
-- Usar `AbortController` para cancelar operações obsoletas e preparar suporte a
-  timeout. A duração limite não está definida na spec (questão 8); não fixar um
-  valor de produto até essa decisão. Cancelamento intencional de requisição
-  obsoleta não deve ser comunicado como falha ao usuário.
+- Usar `AbortController` para cancelar operações obsoletas. Cada chamada de rede
+  expira após 10 segundos; expiração é um erro recuperável com retry, enquanto
+  cancelamento intencional de consulta obsoleta não deve ser comunicado como
+  falha (RNF4, RNF7).
+- Anunciar loading e erro com regiões semânticas; não aplicar `aria-live` ao
+  conteúdo completo da previsão. Animações devem respeitar movimento reduzido
+  (RNF2, RNF8).
 - Não exibir dados parciais como consulta concluída. Campos opcionais só podem
   ser omitidos se sua ausência for compatível com os detalhes aprovados; campos
   obrigatórios inválidos/incompletos resultam em erro e retry.
@@ -331,10 +335,10 @@ para a arquitetura-base:
 | 3. Campos por dia | Mínima, máxima e código da condição. | Se incluir precipitação ou outros dados. |
 | 4. Resultados de cidades | Até cinco; nome, região disponível e país. | Quantidade e campos finais de contexto. |
 | 5. Formatos de entrada | Buscar por nome de cidade. | Suporte a CEP, nomes acentuados e nomes em outros idiomas. |
-| 6. Busca automática | Automática, sem envio manual, e iniciada a partir de três caracteres. | Intervalo de espera/debounce entre consultas durante a digitação. |
+| 6. Busca automática | Automática a partir de três caracteres, com debounce de 300 ms. | — |
 | 7. Persistência | Não persistir cidade/unidade nesta versão. | Se preferências devem sobreviver ao retorno. |
 | 8. Fuso e atualização | Usar timezone da localização para calendário da previsão; não mostrar horário de atualização nesta proposta mínima. | Exibição de fuso e horário de atualização. |
-| 9. Timeout | Cancelamento com `AbortController`; duração ainda não definida. | Limite após o qual informar falha. |
+| 9. Timeout | 10 segundos por chamada; erro recuperável com retry. | — |
 
-As recomendações são premissas explícitas de planejamento, não requisitos
-aprovados; a especificação e suas decisões futuras prevalecem.
+As propostas das questões ainda abertas são premissas de planejamento, não
+requisitos aprovados. As decisões registradas na spec prevalecem.
