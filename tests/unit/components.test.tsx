@@ -6,7 +6,7 @@ import CurrentWeather from '../../src/components/CurrentWeather';
 import EmptyState from '../../src/components/states/EmptyState';
 import ErrorState from '../../src/components/states/ErrorState';
 import LoadingState from '../../src/components/states/LoadingState';
-import { initialMockWeather } from '../../src/mocks/weather';
+import { initialMockWeather } from '../fixtures/weather';
 
 describe('Componentes reutilizáveis', () => {
   it('encaminha o objeto completo da cidade selecionada', async () => {

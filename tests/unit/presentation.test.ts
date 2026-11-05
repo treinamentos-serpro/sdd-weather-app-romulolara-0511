@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { formatForecastDate } from '../../src/lib/date';
 import { celsiusToFahrenheit, formatTemperature } from '../../src/lib/temperature';
 import { getWeatherCondition } from '../../src/lib/weatherCodes';
-import { mockWeather } from '../../src/mocks/weather';
+import { mockWeather } from '../fixtures/weather';
 
 describe('Apresentação dos dados', () => {
   it.each([

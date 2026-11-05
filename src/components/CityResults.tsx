@@ -11,7 +11,7 @@ export default function CityResults({ cities, onSelect }: CityResultsProps) {
     return (
       <EmptyState
         title="Nenhuma cidade encontrada"
-        message="Tente outro nome. Nesta demonstração: São Paulo, Rio de Janeiro ou Lisboa."
+        message="Tente outro nome ou confira a grafia da cidade."
       />
     );
   }

@@ -1,4 +1,4 @@
-import type { WeatherData } from '../types/weather';
+import type { WeatherData } from '../../src/types/weather';
 
 export const mockWeather: WeatherData[] = [
   {

@@ -7,10 +7,10 @@ import WeatherIcon from './components/WeatherIcon';
 import EmptyState from './components/states/EmptyState';
 import ErrorState from './components/states/ErrorState';
 import LoadingState from './components/states/LoadingState';
-import useMockWeather from './hooks/useMockWeather';
+import useWeather from './hooks/useWeather';
 
 export default function App() {
-  const { state, unit, setUnit, searchCities, selectCity, retry } = useMockWeather();
+  const { state, unit, setUnit, searchCities, selectCity, retry } = useWeather();
 
   return (
     <div className="relative isolate min-h-screen overflow-hidden bg-night-900 text-slate-100">
@@ -52,22 +52,14 @@ export default function App() {
           <section aria-label="Buscar cidade" className="glass-panel p-4 sm:p-5">
             <SearchBar onSearch={searchCities} />
             <p id="search-hint" className="mt-3 text-xs leading-5 text-slate-400">
-              Cidades disponíveis: São Paulo, Rio de Janeiro e Lisboa.
+              Digite o nome de uma cidade e selecione a localização desejada.
             </p>
           </section>
-          <p className="flex items-start gap-2 text-xs leading-5 text-slate-300">
-            <span
-              aria-hidden="true"
-              className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-accent-400"
-            />
-            Modo demonstração — dados fictícios de 5 a 9 de novembro de 2026, sem consultas à API.
-            Não use como previsão real.
-          </p>
           <div aria-live="polite" aria-atomic="false" className="space-y-8">
             {state.status === 'idle' && (
               <EmptyState
                 title="Qual cidade vamos explorar?"
-                message="Busque uma das cidades disponíveis para visualizar o exemplo de previsão."
+                message="Busque uma cidade para consultar o clima e a previsão dos próximos dias."
               />
             )}
             {state.status === 'searching' && <LoadingState message="Buscando cidades..." />}
@@ -88,7 +80,9 @@ export default function App() {
         </main>
         <footer className="flex flex-col gap-2 border-t border-white/10 py-6 text-xs leading-5 text-slate-400 sm:flex-row sm:justify-between">
           <p>Weather App · Feito para acompanhar seus dias.</p>
-          <p>Interface de demonstração · Dados estáticos</p>
+          <a href="https://open-meteo.com/" className="hover:text-white">
+            Dados meteorológicos: Open-Meteo
+          </a>
         </footer>
       </div>
     </div>

@@ -25,7 +25,7 @@ export default function CurrentWeather({ data, unit }: CurrentWeatherProps) {
       <div className="relative flex flex-col gap-8 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-accent-400">
-            Clima atual · demonstração
+            Clima atual
           </p>
           <h2 id="current-title" className="text-3xl font-semibold tracking-tight sm:text-4xl">
             {data.city.name}
@@ -34,7 +34,10 @@ export default function CurrentWeather({ data, unit }: CurrentWeatherProps) {
             {[data.city.region, data.city.country].filter(Boolean).join(', ')}
           </p>
           <p className="mt-5 text-sm text-slate-400">
-            <time dateTime={date}>{formatForecastDate(date)}</time> · data dos dados fictícios
+            <time dateTime={data.current.time}>
+              {formatForecastDate(date)} · {data.current.time.slice(11, 16)}
+            </time>{' '}
+            · horário local ({data.timezone})
           </p>
         </div>
         <div className="flex items-center gap-5 sm:gap-8">

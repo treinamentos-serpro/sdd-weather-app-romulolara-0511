@@ -67,25 +67,24 @@ pode solicitar privilégios de administrador. Se os navegadores já estiverem
 instalados e houver um aviso de bibliotecas ausentes, execute
 `pnpm exec playwright install-deps chromium webkit`.
 
-### Interface com dados estáticos
+### Interface integrada à Open-Meteo
 
 A interface React + Tailwind usa o tema dark glassmorphism e layout mobile-first.
-Execute `pnpm dev` para abrir a demonstração. Ela inicia com São Paulo para
-facilitar a avaliação visual; a busca local também oferece Rio de Janeiro e
-Lisboa, inclusive sem acentos. Celsius/Fahrenheit altera todas as temperaturas
-sem mudar a cidade ou as datas.
+Execute `pnpm dev`, busque uma cidade e selecione um dos até cinco resultados.
+A tela inicia sem cidade selecionada e consulta clima atual e cinco dias
+(hoje e os quatro seguintes) no horário local da cidade, sem API key.
+Celsius/Fahrenheit altera todas as temperaturas sem novas requisições.
 
-Os [mocks](src/mocks/weather.ts) usam datas fixas de 5 a 9 de novembro de 2026 e
-são identificados como fictícios na tela. Não há chamadas à Open-Meteo,
-persistência nem simulação artificial de latência. O
-[hook de demonstração](src/hooks/useMockWeather.ts) é separado dos componentes
-de apresentação. Os componentes de loading, vazio e erro com retry estão
-prontos para a integração futura; o carregamento não é acionado pela busca
-local síncrona. A integração real deverá iniciar sem cidade selecionada,
-conforme o plano.
+Todo acesso à rede e validação das respostas ficam no
+[service](src/services/weatherService.ts). O [hook](src/hooks/useWeather.ts)
+coordena loading, vazio, sucesso, erro e nova tentativa, cancelando requisições
+obsoletas. Falhas de busca e previsão podem ser repetidas sem redigitar a busca.
+Não há persistência, cache ou timeout fixo, conforme as premissas do backlog.
 
-Implementação correspondente à entrega de interface T-14–T-19, com os contratos
-e helpers mínimos de T-02–T-05; não conclui as tarefas de API e orquestração.
+Implementação correspondente às tarefas de integração e orquestração T-06–T-13,
+conectadas à interface T-14–T-19. Os dados fictícios ficam apenas nas
+[fixtures de teste](tests/fixtures/weather.ts); os testes simulam services ou
+interceptam a rede, sem consultar a API real.
 
 ### Scripts
 
