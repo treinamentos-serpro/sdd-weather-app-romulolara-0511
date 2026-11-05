@@ -52,14 +52,15 @@ export default function App() {
           <section aria-label="Buscar cidade" className="glass-panel p-4 sm:p-5">
             <SearchBar onSearch={searchCities} />
             <p id="search-hint" className="mt-3 text-xs leading-5 text-slate-400">
-              Digite o nome de uma cidade e selecione a localização desejada.
+              Digite pelo menos 3 caracteres para buscar automaticamente e selecione a localização
+              desejada.
             </p>
           </section>
           <div aria-live="polite" aria-atomic="false" className="space-y-8">
             {state.status === 'idle' && (
               <EmptyState
                 title="Qual cidade vamos explorar?"
-                message="Busque uma cidade para consultar o clima e a previsão dos próximos dias."
+                message="Digite pelo menos 3 caracteres do nome de uma cidade para consultar o clima e a previsão dos próximos dias."
               />
             )}
             {state.status === 'searching' && <LoadingState message="Buscando cidades..." />}

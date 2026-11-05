@@ -49,7 +49,7 @@ export default function useWeather() {
 
   function searchCities(query: string) {
     const name = query.trim();
-    if (!name) {
+    if (name.length < 3) {
       controller.current?.abort();
       lastRequest.current = null;
       setState({ status: 'idle' });

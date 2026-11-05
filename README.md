@@ -70,7 +70,12 @@ instalados e houver um aviso de bibliotecas ausentes, execute
 ### Interface integrada à Open-Meteo
 
 A interface React + Tailwind usa o tema dark glassmorphism e layout mobile-first.
-Execute `pnpm dev`, busque uma cidade e selecione um dos até cinco resultados.
+Execute `pnpm dev`, digite pelo menos três caracteres do nome de uma cidade e
+selecione um dos até cinco resultados. A busca é automática a cada alteração,
+sem botão, envio por Enter ou intervalo de debounce definido. Espaços nas
+extremidades são desconsiderados ao verificar o limite. Ao reduzir o texto para
+menos de três caracteres, os resultados são limpos e consultas pendentes são
+canceladas, sem exibir loading ou mensagem de ausência de resultados.
 A tela inicia sem cidade selecionada e consulta clima atual e cinco dias
 (hoje e os quatro seguintes) no horário local da cidade, sem API key.
 Celsius/Fahrenheit altera todas as temperaturas sem novas requisições.

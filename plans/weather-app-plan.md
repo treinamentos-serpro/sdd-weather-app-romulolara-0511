@@ -154,11 +154,16 @@ tarefas sem alterar esse comportamento.
 
 ## 5. Data Flow
 
-1. A pessoa informa um nome de cidade. O hook inicia a busca e a UI comunica o
-   carregamento (RF1, RF6).
+1. A pessoa informa ou altera o texto da busca. Antes de chamar o serviço, a
+   interface verifica o tamanho da entrada: com menos de três caracteres, não
+   envia requisição e não apresenta isso como uma busca sem resultados. A partir
+   de três caracteres, inicia a busca automaticamente, sem botão ou tecla de
+   envio (RF1, US1). O intervalo/debounce entre consultas permanece conforme a
+   decisão pendente na questão 6 da spec.
 2. `weatherService.searchCities(query)` consulta o Geocoding e normaliza os
-   resultados. Resultado vazio exibe mensagem de ausência; cada opção mostra
-   cidade e contexto geográfico (RF2, US1).
+   resultados. A UI comunica loading enquanto aguarda; resultado vazio exibe
+   mensagem de ausência; cada opção mostra cidade e contexto geográfico (RF2,
+   RF6, US1).
 3. Ao escolher uma cidade, a aplicação guarda o objeto `City` selecionado e
    solicita clima usando suas coordenadas — nunca o texto de busca ou
    coordenadas de outra opção.
@@ -184,6 +189,10 @@ estado de consulta (edge case da spec).
 GET https://geocoding-api.open-meteo.com/v1/search
   ?name={query}&count=5&language=pt&format=json
 ```
+
+Só chamar o endpoint quando a entrada da busca tiver pelo menos três caracteres.
+Essa validação ocorre antes da chamada HTTP; entradas menores não são submetidas
+ao Geocoding nem tratadas como resultado vazio.
 
 Parâmetros propostos: `name` é o texto pesquisado; `count=5` limita resultados;
 `language=pt` solicita nomes/localizações em português quando disponíveis;
@@ -221,14 +230,20 @@ mínima; rever se as questões 1–3 aprovarem detalhes adicionais.
   por esse hook). Não usar store global.
 - Começar em `idle`, com Celsius e sem cidade/dados selecionados. Uma busca sem
   correspondências apresenta estado vazio sem inventar seleção.
+- A busca é automática conforme o texto muda: só chamar `searchCities(query)`
+  quando a entrada tiver no mínimo três caracteres. Abaixo desse limite, não
+  iniciar loading nem representar a entrada curta como uma busca concluída sem
+  resultados; limpar/invalidar resultados de consultas anteriores para que não
+  pareçam corresponder ao texto atual.
 - Expor operações conceituais `searchCities(query)`, `selectCity(city)`,
-  `setUnit(unit)` e `retry()`, além do estado necessário à UI.
+  `setUnit(unit)` e `retry()`, além do estado necessário à UI. O intervalo entre
+  chamadas automáticas ainda depende da questão 6 da spec.
 - Manter temperaturas em Celsius e derivar valores para exibição com funções
   puras. Conversão:
   `°F = (°C × 9 / 5) + 32`; formatar com unidade e locale `pt-BR`.
 - Não persistir cidade ou unidade entre sessões na primeira versão: a spec
   confirma ausência de persistência no servidor, mas a persistência local está
-  em aberto (questão 6). Reavaliar se for decidida.
+  em aberto (questão 7). Reavaliar se for decidida.
 - Evitar resposta fora de ordem: associar a cada operação uma identidade/cancelar
   requisição anterior para que apenas a consulta vigente atualize a UI.
 
@@ -237,6 +252,10 @@ mínima; rever se as questões 1–3 aprovarem detalhes adicionais.
 - Separar vazio de erro: uma busca válida sem resultados exibe estado vazio; falha
   de rede, HTTP não bem-sucedido, timeout, JSON inválido ou dados meteorológicos
   incompletos produzem estado de erro (RF6, edge cases).
+- Uma entrada com menos de três caracteres não inicia busca: não exibir loading,
+  erro ou mensagem de “nenhum resultado” para esse caso. Ao reduzir a entrada
+  abaixo do limite enquanto uma consulta está pendente, cancelar ou invalidar
+  sua resposta para não mostrar resultados desatualizados.
 - O serviço valida `response.ok`, parsing e campos necessários; erros devem
   carregar contexto suficiente para diagnóstico e ser propagados ao hook. A UI
   exibe mensagem pt-BR compreensível, sem detalhes técnicos da API.
@@ -261,11 +280,14 @@ mínima; rever se as questões 1–3 aprovarem detalhes adicionais.
 - `weatherCodes` e `date`: mapeamento/formatação e datas locais, incluindo
   sequência de cinco dias.
 - `weatherService`: parâmetros e coordenadas corretos; mapeamento de resultados
-  de geocoding e arrays diários; lista vazia; falha HTTP/rede; JSON malformado;
-  campos ausentes e arrays desalinhados.
+  de geocoding e arrays diários; garantir que entradas com menos de três
+  caracteres não gerem requisição, que o limite seja inclusivo (três caracteres
+  iniciam busca), lista vazia, falha HTTP/rede, JSON malformado, campos ausentes
+  e arrays desalinhados.
 - `useWeather` e componentes: estados idle/loading/success/error, busca vazia,
-  seleção da cidade correta, retry, alternância sem nova chamada e resposta
-  antiga não sobrescrevendo a seleção atual.
+  texto abaixo do limite sem loading/estado vazio, busca automática a partir de
+  três caracteres, seleção da cidade correta, retry, alternância sem nova
+  chamada e resposta antiga não sobrescrevendo a seleção atual.
 - Acessibilidade: roles e nomes acessíveis, navegação por teclado e mensagens de
   loading/erro/vazio identificáveis.
 
@@ -290,12 +312,12 @@ de documentação deste plano.
 | --- | --- |
 | API indisponível, lenta ou com limite de uso | Mensagem clara, estado de erro e retry; sem cache na v1 para evitar complexidade não exigida. |
 | Cidades homônimas ou contexto insuficiente | Mostrar cidade, região quando disponível e país; quantidade e campos finais dependem da questão 4. |
-| Diferenças entre data local e fuso do dispositivo | Usar timezone retornado pela API e datas locais para os dias; confirmar apresentação de horário conforme questão 7. |
+| Diferenças entre data local e fuso do dispositivo | Usar timezone retornado pela API e datas locais para os dias; confirmar apresentação de horário conforme questão 8. |
 | Resposta externa incompleta ou arrays desalinhados | Validar no serviço e falhar de forma explícita, em vez de renderizar previsão enganosa. |
 | Conversão de unidade divergente entre componentes | Normalizar em Celsius e centralizar conversão em função pura; sem refazer requisição. |
 | Corrida entre consultas rápidas | Cancelar/ignorar respostas anteriores no hook. |
 | Escopo de dados ainda indefinido | Modelo/API acima é mínimo proposto; confirmar questões 1–3 antes de estabilizar UI e tarefas detalhadas. |
-| Simplicidade versus persistência/configurações adicionais | Sem store, cache, backend ou persistência local na v1; persistência local depende da questão 6. |
+| Simplicidade versus persistência/configurações adicionais | Sem store, cache, backend ou persistência local na v1; persistência local depende da questão 7. |
 
 ### Questões da spec a confirmar
 
@@ -308,10 +330,11 @@ para a arquitetura-base:
 | 2. Granularidade da previsão | Resumo diário, sem previsão por hora. | Se dados por hora são necessários. |
 | 3. Campos por dia | Mínima, máxima e código da condição. | Se incluir precipitação ou outros dados. |
 | 4. Resultados de cidades | Até cinco; nome, região disponível e país. | Quantidade e campos finais de contexto. |
-| 5. Entrada de busca | Nome de cidade; não assumir suporte a CEP até confirmar. | Nomes acentuados/idiomas e códigos postais. |
-| 6. Persistência | Não persistir cidade/unidade nesta versão. | Se preferências devem sobreviver ao retorno. |
-| 7. Fuso e atualização | Usar timezone da localização para calendário da previsão; não mostrar horário de atualização nesta proposta mínima. | Exibição de fuso e horário de atualização. |
-| 8. Timeout | Cancelamento com `AbortController`; duração ainda não definida. | Limite após o qual informar falha. |
+| 5. Formatos de entrada | Buscar por nome de cidade. | Suporte a CEP, nomes acentuados e nomes em outros idiomas. |
+| 6. Busca automática | Automática, sem envio manual, e iniciada a partir de três caracteres. | Intervalo de espera/debounce entre consultas durante a digitação. |
+| 7. Persistência | Não persistir cidade/unidade nesta versão. | Se preferências devem sobreviver ao retorno. |
+| 8. Fuso e atualização | Usar timezone da localização para calendário da previsão; não mostrar horário de atualização nesta proposta mínima. | Exibição de fuso e horário de atualização. |
+| 9. Timeout | Cancelamento com `AbortController`; duração ainda não definida. | Limite após o qual informar falha. |
 
 As recomendações são premissas explícitas de planejamento, não requisitos
 aprovados; a especificação e suas decisões futuras prevalecem.

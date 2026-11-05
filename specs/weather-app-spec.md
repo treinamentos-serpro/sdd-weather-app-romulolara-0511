@@ -13,8 +13,9 @@ unidade inicial.
 
 ## 2. Functional Requirements
 
-- **RF1 — Buscar cidades:** permitir pesquisar cidades pelo nome e apresentar
-  resultados que ajudem a identificar a localização correta.
+- **RF1 — Buscar cidades:** pesquisar cidades pelo nome automaticamente à medida
+  que a pessoa usuária informa o texto, sem exigir o envio manual da busca, e
+  apresentar resultados que ajudem a identificar a localização correta.
 - **RF2 — Selecionar cidade:** permitir selecionar um resultado de busca; quando
   houver cidades homônimas, apresentar contexto geográfico suficiente para
   distingui-las.
@@ -61,6 +62,9 @@ resultados ou falha para saber o que está acontecendo e como prosseguir.
 
 ### Critérios da US1
 
+- Conforme a pessoa usuária digita ou altera o texto da busca, a aplicação
+  atualiza automaticamente os resultados correspondentes, sem exigir que ela
+  envie a consulta por um botão ou tecla.
 - Ao pesquisar uma cidade que tenha resultados, a aplicação apresenta uma lista
   de cidades correspondentes.
 - Os resultados incluem contexto geográfico que permita distinguir cidades com
@@ -206,12 +210,16 @@ se tornem pressupostos de implementação:
    acentos e nomes em outros idiomas?**
    - Impacto: define as expectativas de entrada e os casos que precisam ser
      tratados.
-6. **A cidade e a unidade escolhidas devem ser lembradas ao retornar à
+6. **Qual deve ser o tamanho mínimo do texto e o intervalo de espera antes de
+   iniciar ou atualizar a busca automática durante a digitação?**
+   - Impacto: afeta a frequência das consultas e quando os resultados são
+     atualizados.
+7. **A cidade e a unidade escolhidas devem ser lembradas ao retornar à
    aplicação?**
    - Impacto: determina se haverá persistência de preferências no dispositivo.
-7. **Como devem ser tratados fuso horário e horário de atualização das
+8. **Como devem ser tratados fuso horário e horário de atualização das
    informações?**
    - Impacto: evita divergências entre a hora local da cidade e a hora do
      dispositivo.
-8. **Qual é o tempo máximo aceitável para uma busca antes de informar falha?**
+9. **Qual é o tempo máximo aceitável para uma busca antes de informar falha?**
    - Impacto: influencia quando o estado de erro deve ser mostrado.

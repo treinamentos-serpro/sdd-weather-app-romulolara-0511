@@ -6,8 +6,12 @@ ordenadas por dependência e organizadas por entrega.
 
 ## Premissas para execução
 
-- O escopo funcional é o da spec; decisões ainda abertas nas questões 1–8 da spec
+- O escopo funcional é o da spec; decisões ainda abertas nas questões 1–9 da spec
   devem ser confirmadas antes de estabilizar os campos e a apresentação afetados.
+- A busca é automática a partir de três caracteres. Entradas menores não iniciam
+  requisição nem são tratadas como busca vazia; ao encurtar o texto, resultados
+  anteriores devem ser limpos ou invalidados. O intervalo/debounce segue pendente:
+  não assumir uma duração sem decisão registrada.
 - Enquanto não houver decisão registrada, implementar somente a proposta mínima
   do plano: até cinco resultados de geocodificação; clima atual com temperatura
   e código; previsão diária com mínima, máxima e código; sem persistência;
@@ -22,13 +26,16 @@ ordenadas por dependência e organizadas por entrega.
 
 ### T-01 — Registrar decisões pendentes que afetam a implementação
 
-- **Requisitos:** RF1–RF7; US1–US5; questões em aberto 1–8 da spec.
+- **Requisitos:** RF1–RF7; US1–US5; questões em aberto 1–9 da spec.
 - **Dependências:** nenhuma.
 - **Arquivos prováveis:** `specs/weather-app-spec.md`, `plans/weather-app-plan.md`.
 - **Critérios de aceite:**
   - Cada questão aberta que altere campos, comportamento ou escopo tem uma
-    decisão registrada, ou está explicitamente mantida como premissa mínima do
-    plano para esta versão.
+    decisão registrada, ou permanece explicitamente pendente sem ser convertida
+    em requisito.
+  - Busca automática a partir de três caracteres e ausência de requisição abaixo
+    desse limite são mantidas como comportamento definido no plano; o intervalo
+    de debounce permanece sem valor presumido até decisão específica.
   - Quantidade/contexto dos resultados, entrada aceita, dados meteorológicos,
     persistência, timezone e timeout não ficam contraditórios entre spec e plano.
   - Nenhum detalhe proposto pelo plano é apresentado como decisão aprovada sem
@@ -95,6 +102,8 @@ ordenadas por dependência e organizadas por entrega.
 - **Critérios de aceite:**
   - `searchCities(query)` consulta o endpoint de Geocoding com os parâmetros
     acordados e mapeia resultados para `City`.
+  - Entradas com menos de três caracteres não chegam ao endpoint; três
+    caracteres são suficientes para iniciar a busca.
   - Uma resposta válida sem resultados retorna lista vazia.
   - Resposta HTTP malsucedida, JSON inválido ou campos obrigatórios inválidos
     produzem erro propagável, não lista vazia.
@@ -108,6 +117,8 @@ ordenadas por dependência e organizadas por entrega.
 - **Critérios de aceite:**
   - Testes verificam URL/parâmetros, mapeamento de cidade e contexto geográfico,
     resultado vazio e uso do sinal de cancelamento.
+  - Testes confirmam que uma entrada curta não gera requisição e que o limite é
+    inclusivo (três caracteres podem consultar).
   - Testes distinguem resposta vazia válida de falha HTTP, de rede, JSON
     malformado e dados inválidos.
   - Nenhum teste acessa a API real.
@@ -149,6 +160,8 @@ ordenadas por dependência e organizadas por entrega.
 - **Critérios de aceite:**
   - O hook inicia em estado `idle` e expõe operação de busca e estado necessário
     para apresentar carregamento, resultados e erro.
+  - Só inicia a busca a partir de três caracteres; abaixo do limite não mostra
+    loading nem ausência de resultados e invalida resultados de texto anterior.
   - Uma busca válida sem correspondências permanece distinta de falha.
   - Busca nova cancela ou invalida a anterior; somente a busca vigente pode
     atualizar o estado.
@@ -161,6 +174,10 @@ ordenadas por dependência e organizadas por entrega.
 - **Arquivos prováveis:** `tests/unit/useWeather.search.test.ts`.
 - **Critérios de aceite:**
   - Testes cobrem estado inicial, loading, resultados, lista vazia e erro.
+  - Testes confirmam que texto com menos de três caracteres não inicia busca,
+    loading ou estado vazio, e que três caracteres iniciam a busca.
+  - Reduzir o texto abaixo do limite enquanto há consulta pendente impede a
+    resposta obsoleta de atualizar os resultados.
   - Uma resposta antiga ou cancelada não substitui os resultados da busca mais
     recente.
   - Os testes isolam o serviço e não fazem requisições externas.
@@ -211,8 +228,14 @@ ordenadas por dependência e organizadas por entrega.
 - **Arquivos prováveis:** `src/components/SearchBar.tsx`,
   `src/components/CityResults.tsx`.
 - **Critérios de aceite:**
-  - A busca aceita nome de cidade, oferece ação identificável e renderiza opções
-    com nome e contexto geográfico definido para distingui-las.
+  - Alterar o texto inicia a busca automaticamente, sem botão/tecla de envio,
+    somente quando há pelo menos três caracteres.
+  - Texto abaixo do limite não exibe loading nem “nenhum resultado”; os resultados
+    anteriores deixam de parecer associados ao texto atual.
+  - Não se presume um intervalo de debounce; qualquer intervalo deve seguir uma
+    decisão registrada na questão 6 da spec.
+  - A busca aceita nome de cidade e renderiza opções com nome e contexto
+    geográfico definido para distingui-las.
   - Selecionar uma opção encaminha o objeto dessa cidade ao hook, não apenas o
     texto digitado.
   - Entrada e opções têm nomes acessíveis e podem ser operadas por teclado.
@@ -268,6 +291,8 @@ ordenadas por dependência e organizadas por entrega.
 - **Critérios de aceite:**
   - Testes de interface cobrem busca, seleção, clima, cinco dias, troca de
     unidade, loading, vazio, erro e retry.
+  - Testes de interface cobrem busca automática no limite de três caracteres,
+    estado sem busca para texto menor e limpeza/invalidação de resultados antigos.
   - Roles, nomes acessíveis e operação por teclado são verificados nos controles
   e estados relevantes.
   - Testes não dependem de rede nem de conteúdo externo variável.
@@ -282,6 +307,8 @@ ordenadas por dependência e organizadas por entrega.
 - **Critérios de aceite:**
   - Fluxo de sucesso cobre busca, seleção, identificação da cidade, clima atual,
     cinco dias e alternância para Fahrenheit sem mudar cidade/datas.
+  - A busca acontece sem envio manual a partir de três caracteres; abaixo do
+    limite não aparecem resultados nem mensagem de busca vazia.
   - Fluxos de busca sem resultados e falha de previsão com retry são verificados.
   - Os cenários são executados em viewport móvel e confirmam usabilidade dos
     controles e dados.

@@ -14,9 +14,14 @@ beforeEach(() => {
   vi.mocked(weatherService.getWeather).mockResolvedValue(initialMockWeather);
 });
 
+async function enterQuery(user: ReturnType<typeof userEvent.setup>, query: string) {
+  await user.click(screen.getByRole('searchbox'));
+  await user.paste(query);
+}
+
 async function selectInitialCity() {
   const user = userEvent.setup();
-  await user.type(screen.getByRole('searchbox'), 'São Paulo{Enter}');
+  await enterQuery(user, 'São Paulo');
   const option = await screen.findByRole('button', { name: /São Paulo.*Brasil/ });
   option.focus();
   await user.keyboard('{Enter}');
@@ -25,6 +30,68 @@ async function selectInitialCity() {
 }
 
 describe('Interface integrada à Open-Meteo', () => {
+  it('busca automaticamente no terceiro caractere e atualiza ao continuar digitando', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    const input = screen.getByRole('searchbox', { name: 'Nome da cidade' });
+    expect(input).toHaveAccessibleDescription(/pelo menos 3 caracteres/);
+    expect(screen.queryByRole('button', { name: 'Buscar cidade' })).not.toBeInTheDocument();
+    await user.type(input, 'Li');
+    expect(weatherService.searchCities).not.toHaveBeenCalled();
+    expect(screen.getByRole('status')).toHaveTextContent('Qual cidade vamos explorar?');
+    expect(screen.queryByText('Nenhuma cidade encontrada')).not.toBeInTheDocument();
+
+    await user.type(input, 's');
+    expect(weatherService.searchCities).toHaveBeenCalledExactlyOnceWith(
+      'Lis',
+      expect.any(AbortSignal),
+    );
+    await user.type(input, 'b');
+    expect(weatherService.searchCities).toHaveBeenLastCalledWith('Lisb', expect.any(AbortSignal));
+    expect(weatherService.searchCities).toHaveBeenCalledTimes(2);
+    await user.keyboard('{Enter}');
+    expect(weatherService.searchCities).toHaveBeenCalledTimes(2);
+  });
+
+  it('limpa resultados ao apagar até dois caracteres e permite pesquisar novamente', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    const input = screen.getByRole('searchbox');
+    await enterQuery(user, 'São');
+    expect(await screen.findByRole('button', { name: /São Paulo.*Brasil/ })).toBeVisible();
+    await user.type(input, '{Backspace}');
+    expect(input).toHaveValue('Sã');
+    expect(screen.getByRole('status')).toHaveTextContent('Qual cidade vamos explorar?');
+    expect(screen.queryByRole('button', { name: /São Paulo.*Brasil/ })).not.toBeInTheDocument();
+    expect(screen.queryByText('Nenhuma cidade encontrada')).not.toBeInTheDocument();
+    expect(weatherService.searchCities).toHaveBeenCalledTimes(1);
+    await user.type(input, 'o');
+    expect(await screen.findByRole('button', { name: /São Paulo.*Brasil/ })).toBeVisible();
+    expect(weatherService.searchCities).toHaveBeenCalledTimes(2);
+  });
+
+  it('cancela busca ao encurtar o texto e descarta a resposta tardia', async () => {
+    let resolveSearch!: (cities: (typeof initialMockWeather.city)[]) => void;
+    vi.mocked(weatherService.searchCities).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveSearch = resolve;
+        }),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(screen.getByRole('searchbox'), 'Lis');
+    const signal = vi.mocked(weatherService.searchCities).mock.calls[0][1];
+    expect(screen.getByRole('status')).toHaveTextContent('Buscando cidades...');
+    await user.type(screen.getByRole('searchbox'), '{Backspace}');
+    expect(signal?.aborted).toBe(true);
+    expect(screen.getByRole('status')).not.toHaveAttribute('aria-busy');
+    await act(async () => resolveSearch([initialMockWeather.city]));
+    expect(screen.getByRole('status')).toHaveTextContent('Qual cidade vamos explorar?');
+    expect(screen.queryByRole('button', { name: /São Paulo.*Brasil/ })).not.toBeInTheDocument();
+    expect(weatherService.searchCities).toHaveBeenCalledTimes(1);
+  });
+
   it('inicia vazia sem consultar rede e permite buscar e selecionar pelo teclado', async () => {
     render(<App />);
     expect(screen.getByRole('status')).toHaveTextContent('Qual cidade vamos explorar?');
@@ -87,7 +154,7 @@ describe('Interface integrada à Open-Meteo', () => {
     const user = userEvent.setup();
     render(<App />);
     await user.click(screen.getByRole('button', { name: 'Fahrenheit' }));
-    await user.type(screen.getByRole('searchbox'), 'Lisboa{Enter}');
+    await enterQuery(user, 'Lisboa');
     await user.click(await screen.findByRole('button', { name: 'Lisboa Lisboa, Portugal' }));
     expect(await screen.findByRole('heading', { name: 'Lisboa' })).toBeVisible();
     expect(weatherService.getWeather).toHaveBeenCalledWith(lisboa.city, expect.any(AbortSignal));
@@ -103,12 +170,12 @@ describe('Interface integrada à Open-Meteo', () => {
     const user = userEvent.setup();
     render(<App />);
     const input = screen.getByRole('searchbox');
-    await user.type(input, 'Atlantida{Enter}');
+    await enterQuery(user, 'Atlantida');
     expect(await screen.findByText('Nenhuma cidade encontrada')).toBeVisible();
     expect(screen.queryByRole('article')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Tentar novamente' })).not.toBeInTheDocument();
     await user.clear(input);
-    await user.type(input, '   {Enter}');
+    await enterQuery(user, '   ');
     expect(screen.getByRole('status')).toHaveTextContent('Qual cidade vamos explorar?');
     expect(weatherService.searchCities).toHaveBeenCalledTimes(1);
   });
@@ -123,7 +190,7 @@ describe('Interface integrada à Open-Meteo', () => {
     );
     const user = userEvent.setup();
     render(<App />);
-    await user.type(screen.getByRole('searchbox'), 'São Paulo{Enter}');
+    await enterQuery(user, 'São Paulo');
     await user.click(await screen.findByRole('button', { name: /São Paulo.*Brasil/ }));
     expect(screen.getByRole('status')).toHaveTextContent('Carregando o clima de São Paulo...');
     rejectWeather(new Error('offline'));
@@ -149,7 +216,7 @@ describe('Interface integrada à Open-Meteo', () => {
     );
     const input = screen.getByRole('searchbox');
     await user.clear(input);
-    await user.type(input, '???{Enter}');
+    await enterQuery(user, '???');
 
     expect(screen.getByRole('status')).toHaveTextContent('Buscando cidades...');
     expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
@@ -172,7 +239,7 @@ describe('Interface integrada à Open-Meteo', () => {
     );
     const user = userEvent.setup();
     render(<App />);
-    await user.type(screen.getByRole('searchbox'), 'São Paulo{Enter}');
+    await enterQuery(user, 'São Paulo');
     await user.click(await screen.findByRole('button', { name: /São Paulo.*Brasil/ }));
     await user.click(screen.getByRole('button', { name: 'Fahrenheit' }));
 
@@ -191,7 +258,7 @@ describe('Interface integrada à Open-Meteo', () => {
     vi.mocked(weatherService.searchCities).mockRejectedValueOnce(new Error('offline'));
     const user = userEvent.setup();
     render(<App />);
-    await user.type(screen.getByRole('searchbox'), 'São Paulo{Enter}');
+    await enterQuery(user, 'São Paulo');
     expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível buscar cidades');
     expect(screen.queryByText('Nenhuma cidade encontrada')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Tentar novamente' }));

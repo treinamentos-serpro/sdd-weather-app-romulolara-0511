@@ -94,7 +94,39 @@ describe('useWeather', () => {
     expect(result.current.state).toEqual(latest);
   });
 
-  it('busca vazia cancela a consulta pendente e volta a idle', async () => {
+  it.each([
+    '',
+    ' ',
+    'S',
+    'SP',
+    ' SP ',
+  ])('não consulta serviços para entrada abaixo do limite: %j', async (query) => {
+    const { result } = renderHook(useWeather);
+    await act(async () => {
+      await result.current.searchCities(query);
+    });
+    expect(result.current.state).toEqual({ status: 'idle' });
+    expect(weatherService.searchCities).not.toHaveBeenCalled();
+    expect(weatherService.getWeather).not.toHaveBeenCalled();
+  });
+
+  it('busca com exatamente três caracteres consulta o serviço sem espaços nas extremidades', async () => {
+    const { result } = renderHook(useWeather);
+    await act(async () => {
+      await result.current.searchCities('  São  ');
+    });
+    expect(weatherService.searchCities).toHaveBeenCalledExactlyOnceWith(
+      'São',
+      expect.any(AbortSignal),
+    );
+    expect(result.current.state.status).toBe('results');
+  });
+
+  it.each([
+    '   ',
+    'S',
+    'SP',
+  ])('texto curto %j cancela consulta pendente e volta a idle', async (query) => {
     const old = deferred<City[]>();
     vi.mocked(weatherService.searchCities).mockReturnValueOnce(old.promise);
     const { result } = renderHook(useWeather);
@@ -103,10 +135,26 @@ describe('useWeather', () => {
     });
     const signal = vi.mocked(weatherService.searchCities).mock.calls[0][1];
     act(() => {
-      result.current.searchCities('   ');
+      result.current.searchCities(query);
     });
+
     expect(signal?.aborted).toBe(true);
     await act(async () => old.resolve([weather.city]));
+    expect(result.current.state).toEqual({ status: 'idle' });
+    expect(weatherService.searchCities).toHaveBeenCalledTimes(1);
+  });
+
+  it('texto curto limpa erro e impede retry de uma busca anterior', async () => {
+    vi.mocked(weatherService.searchCities).mockRejectedValueOnce(new Error('offline'));
+    const { result } = renderHook(useWeather);
+    await act(async () => {
+      await result.current.searchCities('Lisboa');
+    });
+    expect(result.current.state.status).toBe('error');
+    await act(async () => {
+      await result.current.searchCities('Li');
+      await result.current.retry();
+    });
     expect(result.current.state).toEqual({ status: 'idle' });
     expect(weatherService.searchCities).toHaveBeenCalledTimes(1);
   });

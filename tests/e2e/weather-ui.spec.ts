@@ -18,6 +18,55 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
 });
 
+test('busca automaticamente no terceiro caractere e limpa resultados abaixo do limite', async ({
+  page,
+}) => {
+  const queries: string[] = [];
+  await page.route('https://geocoding-api.open-meteo.com/v1/search?**', (route) => {
+    queries.push(new URL(route.request().url()).searchParams.get('name') ?? '');
+    return route.fulfill({ json: geocodingResponse([initialMockWeather.city]) });
+  });
+  const input = page.getByRole('searchbox', { name: 'Nome da cidade' });
+  await expect(page.getByRole('button', { name: 'Buscar cidade' })).toHaveCount(0);
+  await input.fill('Sã');
+  await expect(page.getByRole('status')).toContainText('Qual cidade vamos explorar?');
+  await expect(page.getByText('Nenhuma cidade encontrada')).toHaveCount(0);
+  expect(queries).toEqual([]);
+  await input.press('End');
+  await input.press('o');
+  const option = page.getByRole('button', { name: /São Paulo.*Brasil/ });
+  await expect(option).toBeVisible();
+  expect(queries).toEqual(['São']);
+  await input.press('Enter');
+  await input.press('Backspace');
+  await expect(option).toHaveCount(0);
+  await expect(page.getByRole('status')).toContainText('Qual cidade vamos explorar?');
+  await expect(page.getByRole('status')).not.toHaveAttribute('aria-busy');
+  await expect(page.getByText('Nenhuma cidade encontrada')).toHaveCount(0);
+  expect(queries).toEqual(['São']);
+  await input.fill('Lisboa');
+  await expect(option).toBeVisible();
+  expect(queries).toEqual(['São', 'Lisboa']);
+});
+
+test('encurtar texto durante uma busca descarta a resposta obsoleta', async ({ page }) => {
+  let captureSearch!: (route: Route) => void;
+  const pendingSearch = new Promise<Route>((resolve) => {
+    captureSearch = resolve;
+  });
+  await page.route('https://geocoding-api.open-meteo.com/v1/search?**', captureSearch);
+  const input = page.getByRole('searchbox');
+  await input.fill('Lis');
+  const route = await pendingSearch;
+  await expect(page.getByRole('status')).toContainText('Buscando cidades...');
+  await input.fill('Li');
+  await expect(page.getByRole('status')).toContainText('Qual cidade vamos explorar?');
+  await route.fulfill({ json: geocodingResponse([mockWeather[2].city]) });
+  await expect(page.getByRole('button', { name: 'Lisboa Lisboa, Portugal' })).toHaveCount(0);
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(page.getByRole('status')).not.toHaveAttribute('aria-busy');
+});
+
 test('exibe cinco dias e alterna a unidade em todas as temperaturas', async ({ page }) => {
   let forecasts = 0;
   page.on('request', (request) => {
@@ -25,7 +74,6 @@ test('exibe cinco dias e alterna a unidade em todas as temperaturas', async ({ p
   });
   await expect(page.getByRole('status')).toContainText('Qual cidade vamos explorar?');
   await page.getByRole('searchbox').fill('São Paulo');
-  await page.getByRole('searchbox').press('Enter');
   await page.getByRole('button', { name: /São Paulo.*Brasil/ }).click();
   await expect(page.getByRole('heading', { name: 'São Paulo' })).toBeVisible();
   await expect(page.getByRole('article')).toHaveCount(5);
@@ -81,13 +129,10 @@ test('distingue homônimas e consulta a localização escolhida usando apenas te
   );
   await page.getByRole('searchbox').focus();
   await page.keyboard.type('Lisboa');
-  await page.keyboard.press('Enter');
   const brazil = page.getByRole('button', { name: 'Lisboa São Paulo, Brasil' });
   const portugal = page.getByRole('button', { name: 'Lisboa Lisboa, Portugal' });
   await expect(brazil).toBeVisible();
   await expect(portugal).toBeVisible();
-  await page.keyboard.press('Tab');
-  await expect(page.getByRole('button', { name: 'Buscar cidade' })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(brazil).toBeFocused();
   await page.keyboard.press('Tab');
@@ -118,7 +163,6 @@ test('mantém loading em consultas lentas e aplica a unidade escolhida antes da 
   await page.route('https://geocoding-api.open-meteo.com/v1/search?**', captureSearch);
   await page.route('https://api.open-meteo.com/v1/forecast?**', captureForecast);
   await page.getByRole('searchbox').fill('São Paulo');
-  await page.getByRole('searchbox').press('Enter');
   await expect(page.getByRole('status')).toContainText('Buscando cidades...');
   await expect(page.getByRole('status')).toHaveAttribute('aria-busy', 'true');
   await expect(page.getByRole('article')).toHaveCount(0);
@@ -157,7 +201,6 @@ for (const invalid of ['clima ausente', 'previsão incompleta', 'JSON malformado
       });
     });
     await page.getByRole('searchbox').fill('São Paulo');
-    await page.getByRole('searchbox').press('Enter');
     await page.getByRole('button', { name: /São Paulo.*Brasil/ }).click();
     await expect(page.getByRole('alert')).toContainText(
       'Não foi possível consultar o clima de São Paulo',
@@ -186,7 +229,6 @@ test('preserva os cinco dias locais na virada do ano em outro fuso horário', as
     route.fulfill({ json: body }),
   );
   await page.getByRole('searchbox').fill('São Paulo');
-  await page.getByRole('searchbox').press('Enter');
   await page.getByRole('button', { name: /São Paulo.*Brasil/ }).click();
   await expect(page.getByRole('article')).toHaveCount(5);
   for (const [index, date] of dates.entries()) {
@@ -198,25 +240,22 @@ test('preserva os cinco dias locais na virada do ano em outro fuso horário', as
 
 test('busca uma cidade, seleciona o resultado e comunica ausência', async ({ page }) => {
   await page.getByRole('searchbox').fill('Lisboa');
-  await page.getByRole('button', { name: 'Buscar cidade' }).click();
   await page.getByRole('button', { name: 'Lisboa Lisboa, Portugal' }).click();
   await expect(page.getByRole('heading', { name: 'Lisboa' })).toBeVisible();
   await expect(page.getByRole('article')).toHaveCount(5);
   await page.getByRole('searchbox').fill('Atlantida');
-  await page.getByRole('searchbox').press('Enter');
   await expect(page.getByRole('status')).toContainText('Nenhuma cidade encontrada');
   await expect(page.getByRole('article')).toHaveCount(0);
 });
 
 test('mantém controles utilizáveis e grid responsivo entre 320 e 1280 pixels', async ({ page }) => {
   await page.getByRole('searchbox').fill('São Paulo');
-  await page.getByRole('searchbox').press('Enter');
   await page.getByRole('button', { name: /São Paulo.*Brasil/ }).click();
   await expect(page.getByRole('article')).toHaveCount(5);
   for (const width of [320, 390, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await expect(page.getByRole('searchbox')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Buscar cidade' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Buscar cidade' })).toHaveCount(0);
     const dimensions = await page.evaluate(() => ({
       content: document.documentElement.scrollWidth,
       viewport: window.innerWidth,
@@ -251,7 +290,6 @@ test('comunica falha da previsão e repete a consulta da cidade selecionada', as
       : route.fulfill({ json: forecastResponse(initialMockWeather) });
   });
   await page.getByRole('searchbox').fill('São Paulo');
-  await page.getByRole('searchbox').press('Enter');
   await page.getByRole('button', { name: /São Paulo.*Brasil/ }).click();
   await expect(page.getByRole('alert')).toContainText(
     'Não foi possível consultar o clima de São Paulo',
@@ -274,7 +312,6 @@ test('falha da busca não é resultado vazio e pode ser repetida', async ({ page
       : route.fulfill({ json: geocodingResponse([initialMockWeather.city]) });
   });
   await page.getByRole('searchbox').fill('São Paulo');
-  await page.getByRole('searchbox').press('Enter');
   await expect(page.getByRole('alert')).toContainText('Não foi possível buscar cidades');
   await expect(page.getByText('Nenhuma cidade encontrada')).toHaveCount(0);
   await page.getByRole('button', { name: 'Tentar novamente' }).click();

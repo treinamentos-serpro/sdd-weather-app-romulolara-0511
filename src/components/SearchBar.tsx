@@ -10,10 +10,9 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
   return (
     <form
       role="search"
-      className="flex flex-col gap-3 sm:flex-row"
+      aria-label="Busca de cidades"
       onSubmit={(event) => {
         event.preventDefault();
-        onSearch(query);
       }}
     >
       <div className="relative min-w-0 flex-1">
@@ -35,19 +34,17 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
           id="city-search"
           type="search"
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => {
+            const value = event.target.value;
+            setQuery(value);
+            onSearch(value);
+          }}
           placeholder="Buscar uma cidade..."
           autoComplete="off"
           aria-describedby="search-hint"
           className="w-full rounded-2xl border border-white/10 bg-night-900/60 py-3.5 pl-12 pr-4 text-sm text-white placeholder:text-slate-400"
         />
       </div>
-      <button
-        type="submit"
-        className="rounded-2xl bg-accent-600 px-7 py-3.5 text-sm font-semibold text-white transition hover:bg-accent-500"
-      >
-        Buscar cidade
-      </button>
     </form>
   );
 }
