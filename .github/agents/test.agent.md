@@ -34,3 +34,4 @@ spec e das tarefas.
 - Use queries acessíveis (`getByRole`, `getByLabelText`).
 - Nunca chame a API real nos testes.
 - Cada teste deve falhar por uma única razão clara.
+- tarefas sem dependências com anteriores devem ser executadas em paralelas em sub-agentes. Exemplo: Se T-02 e T-03 dependem de T-01, elas podem ser executadas em paralelo após a conclusão de T-01.

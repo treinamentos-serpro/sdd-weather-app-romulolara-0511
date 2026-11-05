@@ -26,11 +26,13 @@ que satisfaça os critérios de aceite.
 2. Implemente a menor mudança que satisfaça a tarefa.
 3. Trate loading, erro e estado vazio.
 4. Rode o checklist: `pnpm lint`, `pnpm build`, `pnpm test`.
-5. Corrija problemas reportados antes de concluir.
+5. Corrija problemas reportados antes de concluir, utilizando sub-agentes quando aplicável.
 
 ## Regras
 
 - Não adicione funcionalidades além da tarefa.
 - Isole acesso a dados em `src/services/`.
+- Evite efeitos colaterais escondidos; funções puras sempre que possível.
 - Componentes pequenos e tipados; sem `any`.
 - Acessibilidade e responsividade não são opcionais.
+- tarefas sem dependências com anteriores devem ser executadas em paralelas em sub-agentes. Exemplo: Se T-02 e T-03 dependem de T-01, elas podem ser executadas em paralelo após a conclusão de T-01.

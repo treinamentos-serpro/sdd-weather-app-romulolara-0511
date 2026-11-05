@@ -1,90 +1,99 @@
-import { useCallback, useState } from 'react';
-import type { City, WeatherData } from '../types/weather';
-import { getWeather, searchCities, WeatherServiceError } from '../services/weatherService';
+import { useEffect, useRef, useState } from 'react';
+import * as weatherService from '../services/weatherService';
+import type { City, TemperatureUnit, WeatherViewState } from '../types/weather';
 
-export type WeatherStatus = 'idle' | 'loading' | 'success' | 'error' | 'empty';
+type WeatherRequest = { type: 'search'; query: string } | { type: 'forecast'; city: City };
 
-interface UseWeatherResult {
-  status: WeatherStatus;
-  data: WeatherData | null;
-  cities: City[];
-  error: string | null;
-  query: string;
-  search: (name: string) => Promise<void>;
-  selectCity: (city: City) => Promise<void>;
-  retry: () => Promise<void>;
-}
+const SEARCH_DEBOUNCE_MS = 300;
 
-/**
- * Hook de orquestração: busca cidades, seleciona uma e carrega o clima.
- * Expõe uma máquina de estados simples (idle/loading/success/error/empty).
- */
-export function useWeather(): UseWeatherResult {
-  const [status, setStatus] = useState<WeatherStatus>('idle');
-  const [data, setData] = useState<WeatherData | null>(null);
-  const [cities, setCities] = useState<City[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
-  const [lastCity, setLastCity] = useState<City | null>(null);
+export default function useWeather() {
+  const [unit, setUnit] = useState<TemperatureUnit>('celsius');
+  const [state, setState] = useState<WeatherViewState>({ status: 'idle' });
+  const controller = useRef<AbortController | null>(null);
+  const lastRequest = useRef<WeatherRequest | null>(null);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: search inicia o fluxo na montagem; loadWeather é estável
-  const search = useCallback(async (name: string) => {
-    const trimmed = name.trim();
-    setQuery(trimmed);
-    if (!trimmed) return;
-
-    setStatus('loading');
-    setError(null);
-    setCities([]);
-    try {
-      const results = await searchCities(trimmed);
-      if (results.length === 0) {
-        setStatus('empty');
-        return;
-      }
-      // Seleciona automaticamente a primeira correspondência, mas mantém a
-      // lista para o usuário trocar.
-      setCities(results);
-      await loadWeather(results[0]);
-    } catch (err) {
-      setStatus('error');
-      setError(toMessage(err));
+  function clearSearchTimer() {
+    if (searchTimer.current) {
+      clearTimeout(searchTimer.current);
+      searchTimer.current = null;
     }
-  }, []);
+  }
 
-  const loadWeather = useCallback(async (city: City) => {
-    setStatus('loading');
-    setError(null);
-    setLastCity(city);
-    try {
-      const weather = await getWeather(city);
-      setData(weather);
-      setStatus('success');
-    } catch (err) {
-      setStatus('error');
-      setError(toMessage(err));
-    }
-  }, []);
-
-  const selectCity = useCallback(
-    async (city: City) => {
-      await loadWeather(city);
+  useEffect(
+    () => () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+      controller.current?.abort();
     },
-    [loadWeather],
+    [],
   );
 
-  const retry = useCallback(async () => {
-    if (lastCity) {
-      await loadWeather(lastCity);
-    } else if (query) {
-      await search(query);
+  async function run(request: WeatherRequest) {
+    clearSearchTimer();
+    controller.current?.abort();
+    const active = new AbortController();
+    controller.current = active;
+    lastRequest.current = request;
+    setState(
+      request.type === 'search'
+        ? { status: 'searching' }
+        : { status: 'loading', city: request.city },
+    );
+    try {
+      const nextState: WeatherViewState =
+        request.type === 'search'
+          ? {
+              status: 'results',
+              cities: await weatherService.searchCities(request.query, active.signal),
+            }
+          : {
+              status: 'success',
+              data: await weatherService.getWeather(request.city, active.signal),
+            };
+      if (!active.signal.aborted) setState(nextState);
+    } catch (error) {
+      if (active.signal.aborted) return;
+      setState({
+        status: 'error',
+        ...(request.type === 'forecast' ? { city: request.city } : {}),
+        message: isTimeoutError(error)
+          ? 'A consulta excedeu o tempo limite. Verifique sua conexão e tente novamente.'
+          : request.type === 'search'
+            ? 'Não foi possível buscar cidades. Verifique sua conexão e tente novamente.'
+            : `Não foi possível consultar o clima de ${request.city.name}. Verifique sua conexão e tente novamente.`,
+      });
     }
-  }, [lastCity, query, loadWeather, search]);
+  }
 
-  return { status, data, cities, error, query, search, selectCity, retry };
+  function searchCities(query: string) {
+    const name = query.trim();
+    clearSearchTimer();
+    controller.current?.abort();
+    if (name.length < 3) {
+      lastRequest.current = null;
+      setState({ status: 'idle' });
+      return;
+    }
+    const request: WeatherRequest = { type: 'search', query: name };
+    lastRequest.current = request;
+    setState({ status: 'searching' });
+    searchTimer.current = setTimeout(() => {
+      searchTimer.current = null;
+      void run(request);
+    }, SEARCH_DEBOUNCE_MS);
+  }
+
+  function selectCity(city: City) {
+    return run({ type: 'forecast', city });
+  }
+
+  function retry() {
+    if (state.status === 'error' && lastRequest.current) return run(lastRequest.current);
+  }
+
+  return { state, unit, setUnit, searchCities, selectCity, retry };
 }
 
-function toMessage(err: unknown): string {
-  if (err instanceof WeatherServiceError) return err.message;
-  return 'Algo deu errado. Tente novamente.';
+function isTimeoutError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'WeatherRequestTimeoutError';
 }

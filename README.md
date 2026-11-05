@@ -67,6 +67,48 @@ pode solicitar privilégios de administrador. Se os navegadores já estiverem
 instalados e houver um aviso de bibliotecas ausentes, execute
 `pnpm exec playwright install-deps chromium webkit`.
 
+### Interface integrada à Open-Meteo
+
+A interface React + Tailwind usa o tema dark glassmorphism e layout mobile-first.
+Execute `pnpm dev`, digite pelo menos três caracteres do nome de uma cidade e
+selecione um dos até cinco resultados. A busca é automática a cada alteração,
+sem botão, envio por Enter ou intervalo de debounce definido. Espaços nas
+extremidades são desconsiderados ao verificar o limite. Ao reduzir o texto para
+menos de três caracteres, os resultados são limpos e consultas pendentes são
+canceladas, sem exibir loading ou mensagem de ausência de resultados.
+A tela inicia sem cidade selecionada e consulta clima atual e cinco dias
+(hoje e os quatro seguintes) no horário local da cidade, sem API key.
+Celsius/Fahrenheit altera todas as temperaturas sem novas requisições.
+
+Todo acesso à rede e validação das respostas ficam no
+[service](src/services/weatherService.ts). O [hook](src/hooks/useWeather.ts)
+coordena loading, vazio, sucesso, erro e nova tentativa, cancelando requisições
+obsoletas. Falhas de busca e previsão podem ser repetidas sem redigitar a busca.
+Não há persistência, cache ou timeout fixo, conforme as premissas do backlog.
+
+Implementação correspondente às tarefas de integração e orquestração T-06–T-13,
+conectadas à interface T-14–T-19. Os dados fictícios ficam apenas nas
+[fixtures de teste](tests/fixtures/weather.ts); os testes simulam services ou
+interceptam a rede, sem consultar a API real.
+
+### Cobertura dos critérios de aceite
+
+A suíte deriva das US1–US5 e dos edge cases da
+[spec](specs/weather-app-spec.md), conforme T-05, T-07, T-09, T-11, T-13,
+T-19 e T-20 do [backlog](tasks/weather-app-tasks.md).
+
+| Critérios | Cobertura |
+| --- | --- |
+| US1: busca, homônimas, seleção e ausência | [Interface integrada](tests/unit/App.test.tsx), [service](tests/unit/weatherService.test.ts) e E2E com seleção por teclado e verificação de coordenadas. |
+| US2–US3: clima atual e cinco dias locais | Interface, service e E2E, incluindo virada de ano em fuso diferente do relógio do navegador. |
+| US4: Celsius inicial e alternância coerente | [Funções de apresentação](tests/unit/presentation.test.ts), interface, [hook](tests/unit/useWeather.test.ts) e E2E verificam valores, cidade, datas e ausência de novas consultas. |
+| US5: loading, erro e retry | Interface, hook e E2E com rede lenta controlada, falha HTTP/rede, JSON malformado e dados incompletos, sem exibir sucesso parcial. |
+| RNF1–RNF2: responsividade e acessibilidade | [Componentes](tests/unit/components.test.tsx) e [E2E](tests/e2e/weather-ui.spec.ts) com roles, nomes acessíveis, teclado e viewports de 320 a 1280 pixels. |
+
+Os E2E executam em Chromium desktop e WebKit com viewport iPhone 13.
+Consultas lentas são liberadas pelo teste, sem esperas fixas; não há teste de
+prazo de timeout porque sua duração permanece em aberto na spec.
+
 ### Scripts
 
 ```bash
