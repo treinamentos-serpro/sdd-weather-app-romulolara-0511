@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../../src/App';
@@ -134,6 +134,57 @@ describe('Interface integrada à Open-Meteo', () => {
     expect(await screen.findByRole('heading', { name: 'São Paulo' })).toBeVisible();
     expect(weatherService.searchCities).toHaveBeenCalledTimes(1);
     expect(weatherService.getWeather).toHaveBeenCalledTimes(2);
+  });
+
+  it('remove o clima anterior durante nova busca e não seleciona uma entrada sem resultados', async () => {
+    let resolveSearch!: (cities: []) => void;
+    vi.mocked(weatherService.searchCities).mockResolvedValueOnce([initialMockWeather.city]);
+    render(<App />);
+    const user = await selectInitialCity();
+    vi.mocked(weatherService.searchCities).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveSearch = resolve;
+        }),
+    );
+    const input = screen.getByRole('searchbox');
+    await user.clear(input);
+    await user.type(input, '???{Enter}');
+
+    expect(screen.getByRole('status')).toHaveTextContent('Buscando cidades...');
+    expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.queryByRole('region', { name: 'São Paulo' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('article')).not.toBeInTheDocument();
+    await act(async () => resolveSearch([]));
+
+    expect(screen.getByRole('status')).toHaveTextContent('Nenhuma cidade encontrada');
+    expect(screen.queryByRole('region', { name: 'São Paulo' })).not.toBeInTheDocument();
+    expect(weatherService.getWeather).toHaveBeenCalledTimes(1);
+  });
+
+  it('mantém loading ao alternar unidade e apresenta a resposta em Fahrenheit', async () => {
+    let resolveWeather!: (data: typeof initialMockWeather) => void;
+    vi.mocked(weatherService.getWeather).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveWeather = resolve;
+        }),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(screen.getByRole('searchbox'), 'São Paulo{Enter}');
+    await user.click(await screen.findByRole('button', { name: /São Paulo.*Brasil/ }));
+    await user.click(screen.getByRole('button', { name: 'Fahrenheit' }));
+
+    expect(screen.getByRole('status')).toHaveTextContent('Carregando o clima de São Paulo...');
+    expect(screen.queryByRole('article')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    await act(async () => resolveWeather(initialMockWeather));
+
+    const main = within(screen.getByRole('main'));
+    expect(main.queryAllByText(/°C/)).toHaveLength(0);
+    expect(main.getAllByText(/°F/)).toHaveLength(11);
+    expect(weatherService.getWeather).toHaveBeenCalledTimes(1);
   });
 
   it('repete a busca após falha, sem confundir erro com ausência de resultados', async () => {

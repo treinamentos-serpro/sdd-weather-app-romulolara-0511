@@ -86,6 +86,24 @@ conectadas à interface T-14–T-19. Os dados fictícios ficam apenas nas
 [fixtures de teste](tests/fixtures/weather.ts); os testes simulam services ou
 interceptam a rede, sem consultar a API real.
 
+### Cobertura dos critérios de aceite
+
+A suíte deriva das US1–US5 e dos edge cases da
+[spec](specs/weather-app-spec.md), conforme T-05, T-07, T-09, T-11, T-13,
+T-19 e T-20 do [backlog](tasks/weather-app-tasks.md).
+
+| Critérios | Cobertura |
+| --- | --- |
+| US1: busca, homônimas, seleção e ausência | [Interface integrada](tests/unit/App.test.tsx), [service](tests/unit/weatherService.test.ts) e E2E com seleção por teclado e verificação de coordenadas. |
+| US2–US3: clima atual e cinco dias locais | Interface, service e E2E, incluindo virada de ano em fuso diferente do relógio do navegador. |
+| US4: Celsius inicial e alternância coerente | [Funções de apresentação](tests/unit/presentation.test.ts), interface, [hook](tests/unit/useWeather.test.ts) e E2E verificam valores, cidade, datas e ausência de novas consultas. |
+| US5: loading, erro e retry | Interface, hook e E2E com rede lenta controlada, falha HTTP/rede, JSON malformado e dados incompletos, sem exibir sucesso parcial. |
+| RNF1–RNF2: responsividade e acessibilidade | [Componentes](tests/unit/components.test.tsx) e [E2E](tests/e2e/weather-ui.spec.ts) com roles, nomes acessíveis, teclado e viewports de 320 a 1280 pixels. |
+
+Os E2E executam em Chromium desktop e WebKit com viewport iPhone 13.
+Consultas lentas são liberadas pelo teste, sem esperas fixas; não há teste de
+prazo de timeout porque sua duração permanece em aberto na spec.
+
 ### Scripts
 
 ```bash
