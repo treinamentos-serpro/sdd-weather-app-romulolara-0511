@@ -59,8 +59,13 @@ Cada módulo tem **README.md**, **challenge.md**, **prompts.md** e
 
 ```bash
 pnpm install
-pnpm exec playwright install   # navegadores para os testes E2E
+pnpm exec playwright install --with-deps chromium webkit   # navegadores e dependências dos testes E2E
 ```
+
+No Linux, `--with-deps` instala também as bibliotecas de sistema necessárias e
+pode solicitar privilégios de administrador. Se os navegadores já estiverem
+instalados e houver um aviso de bibliotecas ausentes, execute
+`pnpm exec playwright install-deps chromium webkit`.
 
 ### Scripts
 
