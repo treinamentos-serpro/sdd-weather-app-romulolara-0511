@@ -67,6 +67,26 @@ pode solicitar privilégios de administrador. Se os navegadores já estiverem
 instalados e houver um aviso de bibliotecas ausentes, execute
 `pnpm exec playwright install-deps chromium webkit`.
 
+### Interface com dados estáticos
+
+A interface React + Tailwind usa o tema dark glassmorphism e layout mobile-first.
+Execute `pnpm dev` para abrir a demonstração. Ela inicia com São Paulo para
+facilitar a avaliação visual; a busca local também oferece Rio de Janeiro e
+Lisboa, inclusive sem acentos. Celsius/Fahrenheit altera todas as temperaturas
+sem mudar a cidade ou as datas.
+
+Os [mocks](src/mocks/weather.ts) usam datas fixas de 5 a 9 de novembro de 2026 e
+são identificados como fictícios na tela. Não há chamadas à Open-Meteo,
+persistência nem simulação artificial de latência. O
+[hook de demonstração](src/hooks/useMockWeather.ts) é separado dos componentes
+de apresentação. Os componentes de loading, vazio e erro com retry estão
+prontos para a integração futura; o carregamento não é acionado pela busca
+local síncrona. A integração real deverá iniciar sem cidade selecionada,
+conforme o plano.
+
+Implementação correspondente à entrega de interface T-14–T-19, com os contratos
+e helpers mínimos de T-02–T-05; não conclui as tarefas de API e orquestração.
+
 ### Scripts
 
 ```bash

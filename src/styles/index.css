@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply m-0 bg-night-900 font-sans antialiased;
+  }
+
+  :focus-visible {
+    @apply outline outline-2 outline-offset-4 outline-accent-400;
+  }
+
+  ::selection {
+    @apply bg-accent-600 text-white;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply rounded-3xl border border-white/10 bg-white/5 shadow-glass backdrop-blur-md;
+  }
+}
