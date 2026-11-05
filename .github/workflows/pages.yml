@@ -30,8 +30,11 @@ jobs:
           node-version-file: ".nvmrc"
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build
       - uses: actions/configure-pages@v5
+        id: pages
+      - run: pnpm build
+        env:
+          VITE_BASE: ${{ steps.pages.outputs.base_path }}/
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist

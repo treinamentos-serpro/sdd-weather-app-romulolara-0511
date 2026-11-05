@@ -123,6 +123,30 @@ pnpm test:coverage   # cobertura
 pnpm test:e2e        # testes E2E (Playwright)
 ```
 
+### Deploy no GitHub Pages
+
+Em **Settings → Pages → Build and deployment**, selecione **GitHub Actions**.
+O [workflow de deploy](.github/workflows/pages.yml) publica somente o build de
+produção em `dist`, não os arquivos-fonte do repositório.
+
+Antes do build, `actions/configure-pages` informa o caminho-base do site.
+O workflow passa esse valor ao Vite por `VITE_BASE`, para que os links de JS e
+CSS incluam o prefixo do repositório. A aplicação fica na URL retornada pelo
+deploy (normalmente `https://<owner>.github.io/<repo>/`), sem o sufixo `/app/`.
+No desenvolvimento local, o caminho-base continua sendo `/`.
+
+Para validar o mesmo build localmente:
+
+```bash
+VITE_BASE=/sdd-weather-app-romulolara-0511/ pnpm build
+pnpm preview
+```
+
+Abra `http://localhost:4173/sdd-weather-app-romulolara-0511/`. O HTML gerado deve
+referenciar arquivos em `/sdd-weather-app-romulolara-0511/assets/`, nunca
+`/src/main.tsx`. Depois de publicar a correção, recarregue a página sem cache
+caso o navegador ainda use o HTML de um deploy anterior.
+
 ---
 
 ## Arquitetura do app
